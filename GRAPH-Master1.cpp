@@ -529,6 +529,7 @@ DirectionalLight dirLight(
     glm::vec3(-0.2f, -1.0f, -0.6f), // direction: high angle, slightly angled like a moon
     glm::vec3(0.6f, 0.7f, 1.0f),    // color: cool blue-white moonlight
     0.15f,                            // strength: dim, moon is much weaker than sun
+    //1.f,
     0.08f,                            // ambientStr: dark night ambient
     glm::vec3(0.05f, 0.05f, 0.15f), // ambientColor: deep blue night tint
     0.1f,                             // specularStr: subtle glint
@@ -869,9 +870,6 @@ void Model::InitTextures() {
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, diffuseTexture);
 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
         glTexImage2D(
             GL_TEXTURE_2D,
             0, //Texture 0
@@ -885,6 +883,17 @@ void Model::InitTextures() {
         );
         glGenerateMipmap(GL_TEXTURE_2D);
 
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+        // Filtering
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        // Anisotropic filtering
+        float maxAniso = 8.f;
+        glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAniso);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, maxAniso);
 
         stbi_image_free(tex_bytes);
     }
@@ -904,9 +913,6 @@ void Model::InitNormals() {
         glGenTextures(1, &normalTexture);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, normalTexture);
-        
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
         glTexImage2D(
             GL_TEXTURE_2D,
@@ -920,6 +926,19 @@ void Model::InitNormals() {
             normal_bytes //loaded texture in bytes
         );
         glGenerateMipmap(GL_TEXTURE_2D);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+        // Filtering
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        // Anisotropic filtering
+        float maxAniso = 8.f;
+        glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAniso);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, maxAniso);
+
         stbi_image_free(normal_bytes);
     }
     else {
@@ -1215,13 +1234,13 @@ int main(void)
     gladLoadGL(glfwGetProcAddress); // if using CMAKE
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetCursorPosCallback(window, mouse_callback);
-    //glfwSetScrollCallback(window, scroll_callback);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 
     Shader defaultShader("Shaders/classShader.vert", "Shaders/classShader.frag");
     Shader skyboxShader("Shaders/skybox.vert", "Shaders/skybox.frag");
     Shader nvShader("Shaders/classShader.vert", "Shaders/nvShader.frag");
+    Shader nvSkyShader("Shaders/skybox.vert", "Shaders/nvSkybox.frag");
 
     //Load Vertices
     GLfloat vertices[]{
@@ -1350,6 +1369,8 @@ int main(void)
     Model floorModel = Model("plane", "patchy-meadow1_albedo", ".png", "patchy-meadow1_normal-ogl", ".png");
     Model treeStem = Model("MapleTreeStem", "maple_bark", ".png", "maple_bark_normal", ".png");
     Model treeLeaves = Model("MapleTreeLeaves", "maple_leaf", ".png", "", "");
+    Model woodhouse = Model("WoodHouse", "woodhouse", ".png", "woodhouse_normal", ".png");
+    Model fenceobj = Model("13078_Wooden_Post_and_Rail_Fence_v1_l3", "Wooden_Post_and_Rail_Fence_diffuse", ".jpg", "", "");
        
     //Create new model plane then initialize texture, overlay map, and normals
     newModel.InitModel();
@@ -1368,6 +1389,14 @@ int main(void)
     treeLeaves.InitTextures();
     treeLeaves.InitNormals();
 
+    woodhouse.InitModel();
+    woodhouse.InitTextures();
+    woodhouse.InitNormals();
+
+    fenceobj.InitModel();
+    fenceobj.InitTextures();
+    fenceobj.InitNormals();
+
 
     //Camera instances
     topDown.Projection = glm::ortho(
@@ -1379,6 +1408,7 @@ int main(void)
         10000.f //Far
     );
 
+    //Randomize tree offsets
     float offsetX[10][10], offsetZ[10][10];
     for (int i = 0; i < 10; i++) {
         for (int j = 0; j < 10; j++) {
@@ -1461,28 +1491,25 @@ int main(void)
         /* Render here */
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-
-        //Skybox
-        skyboxShader.use();
-        glDepthMask(GL_FALSE);
-        glDepthFunc(GL_LEQUAL);
-        //glm::mat4 skyView = glm::mat4(1.f);
-        skyboxShader.setInt("skybox", 0);
-        if (cameraType == THIRDPERSON) skyboxShader.PassSkybox(thirdPerson, lookTarget);
-        else if (cameraType == FIRSTPERSON) skyboxShader.PassSkybox(firstPerson, lookTarget);
-        else skyboxShader.PassOrthoSkybox(topDown);
-
-        glBindVertexArray(skyVAO);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTex);
-        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-
-        glDepthMask(GL_TRUE);
-        glDepthFunc(GL_LESS);
-        //EOF Skybox
-
         //Default Shader
         if (cameraType == THIRDPERSON || cameraType == TOPDOWN) {
+            //Skybox
+            skyboxShader.use();
+            glDepthMask(GL_FALSE);
+            glDepthFunc(GL_LEQUAL);
+            skyboxShader.setInt("skybox", 0);
+            if (cameraType == THIRDPERSON) skyboxShader.PassSkybox(thirdPerson, lookTarget);
+            else skyboxShader.PassOrthoSkybox(topDown);
+
+            glBindVertexArray(skyVAO);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTex);
+            glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+
+            glDepthMask(GL_TRUE);
+            glDepthFunc(GL_LESS);
+            //EOF Skybox
+
             defaultShader.use();
             if (cameraType == THIRDPERSON) defaultShader.passPerspectiveCamera(thirdPerson, lookTarget);
             else defaultShader.passOrthoCamera(topDown);
@@ -1490,6 +1517,17 @@ int main(void)
             //Pass lights to shader
             pointLight.Apply(defaultShader, "pointLight");
             dirLight.Apply(defaultShader, "dirLight");
+
+            //Floor
+            glm::mat4 floor = glm::mat4(1.0f);
+            floor = glm::translate(floor, glm::vec3(0.f, 0.f, 0.f));
+            floor = glm::scale(floor, glm::vec3(1000.0f));
+            defaultShader.setFloat("tiling", 50.f);
+            defaultShader.setMat4("transform", 1, floor);
+            defaultShader.setBool("useAlphaClip", false);
+            defaultShader.LoadTexture(floorModel.GetDiffuse());
+            defaultShader.LoadNormal(floorModel.GetNormal());
+            floorModel.DrawModel();
 
             //Tank
             glm::mat4 objectMatrix = glm::mat4(1.0f);
@@ -1504,18 +1542,31 @@ int main(void)
             defaultShader.LoadNormal(newModel.GetNormal());
             newModel.DrawModel();
 
-            //Floor
-            glm::mat4 floor = glm::mat4(1.0f);
-            floor = glm::translate(floor, glm::vec3(0.f, 0.f, 0.f));
-            floor = glm::scale(floor, glm::vec3(1000.0f));
-            //floor = glm::rotate(floor, glm::radians(90.f), glm::vec3(1.f, 0.f, 0.f));
-            defaultShader.setFloat("tiling", 50.f);
-            defaultShader.setMat4("transform", 1, floor);
+            //Woodhouse
+            glm::mat4 woodhouse_m = glm::mat4(1.0f);
+            woodhouse_m = glm::translate(woodhouse_m, glm::vec3(75.f, 0.f, 25.f));
+            woodhouse_m = glm::scale(woodhouse_m, glm::vec3(2.0f));
+            woodhouse_m = glm::rotate(woodhouse_m, glm::radians(90.f), glm::vec3(0.f, 1.f, 0.f));
+            defaultShader.setFloat("tiling", 1.f);
+            defaultShader.setMat4("transform", 1, woodhouse_m);
             defaultShader.setBool("useAlphaClip", false);
-            defaultShader.LoadTexture(floorModel.GetDiffuse());
-            defaultShader.LoadNormal(floorModel.GetNormal());
-            floorModel.DrawModel();
+            defaultShader.LoadTexture(woodhouse.GetDiffuse());
+            defaultShader.LoadNormal(woodhouse.GetNormal());
+            woodhouse.DrawModel();
 
+            //fence
+            glm::mat4 m_fence = glm::mat4(1.0f);
+            m_fence = glm::translate(m_fence, glm::vec3(0.f, 5.f, 0.f));
+            m_fence = glm::scale(m_fence, glm::vec3(5.0f));
+            m_fence = glm::rotate(m_fence, glm::radians(90.f), glm::vec3(0.f, 1.f, 0.f));
+            defaultShader.setFloat("tiling", 1.f);
+            defaultShader.setMat4("transform", 1, m_fence);
+            defaultShader.setBool("useAlphaClip", false);
+            defaultShader.LoadTexture(fenceobj.GetDiffuse());
+            defaultShader.LoadNormal(fenceobj.GetNormal());
+            fenceobj.DrawModel();
+
+            //Tree
             glm::mat4 trunk, leaves;
             for (int i = 0; i < 5; i++) {
                 for (int j = 0; j < 5; j++) {
@@ -1523,7 +1574,7 @@ int main(void)
 
                     trunk = glm::mat4(1.0f);
                     trunk = glm::translate(trunk, pos);
-                    trunk = glm::scale(trunk, glm::vec3(0.5f));
+                    trunk = glm::scale(trunk, glm::vec3(0.25f));
                     defaultShader.setFloat("tiling", 1.f);
                     defaultShader.setMat4("transform", 1, trunk);
                     defaultShader.setBool("useAlphaClip", false);
@@ -1533,7 +1584,7 @@ int main(void)
 
                     leaves = glm::mat4(1.0f);
                     leaves = glm::translate(leaves, pos);
-                    leaves = glm::scale(leaves, glm::vec3(0.5f));
+                    leaves = glm::scale(leaves, glm::vec3(0.25f));
                     defaultShader.setFloat("tiling", 1.f);
                     defaultShader.setMat4("transform", 1, leaves);
                     defaultShader.setBool("useAlphaClip", true);
@@ -1543,9 +1594,28 @@ int main(void)
 
                 }
             }
+
+            
+
         }
 
         else {
+            //Skybox
+            nvSkyShader.use();
+            glDepthMask(GL_FALSE);
+            glDepthFunc(GL_LEQUAL);
+            nvSkyShader.setInt("skybox", 0);
+            nvSkyShader.PassSkybox(firstPerson, lookTarget);
+
+            glBindVertexArray(skyVAO);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTex);
+            glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+
+            glDepthMask(GL_TRUE);
+            glDepthFunc(GL_LESS);
+            //EOF Skybox
+
             nvShader.use();
             nvShader.passPerspectiveCamera(firstPerson, lookTarget);
 
@@ -1605,6 +1675,18 @@ int main(void)
 
                 }
             }
+
+            //Woodhouse
+            glm::mat4 woodhouse_m = glm::mat4(1.0f);
+            woodhouse_m = glm::translate(woodhouse_m, glm::vec3(75.f, 0.f, 25.f));
+            woodhouse_m = glm::scale(woodhouse_m, glm::vec3(2.0f));
+            woodhouse_m = glm::rotate(woodhouse_m, glm::radians(90.f), glm::vec3(0.f, 1.f, 0.f));
+            defaultShader.setFloat("tiling", 1.f);
+            defaultShader.setMat4("transform", 1, woodhouse_m);
+            defaultShader.setBool("useAlphaClip", false);
+            defaultShader.LoadTexture(woodhouse.GetDiffuse());
+            defaultShader.LoadNormal(woodhouse.GetNormal());
+            woodhouse.DrawModel();
         }
 
         /* Swap front and back buffers */
@@ -1617,6 +1699,9 @@ int main(void)
     //lightModel.DeleteBuffers();
     newModel.DeleteBuffers();
     floorModel.DeleteBuffers();
+    treeStem.DeleteBuffers();
+    treeLeaves.DeleteBuffers();
+    fenceobj.DeleteBuffers();
 
     //Terminate gl
     glfwTerminate();
