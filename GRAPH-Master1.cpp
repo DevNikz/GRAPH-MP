@@ -1,4 +1,5 @@
 ﻿#include "GRAPH-Master1.h"
+#include <random>
 using namespace std;
 
 /*
@@ -185,8 +186,11 @@ public:
 
 #endif
 
-float windowWidth = 1280;
-float windowHeight = 720;
+float windowWidth = 1600;
+float windowHeight = 900;
+
+std::mt19937 rng(42); // seed for reproducibility
+std::uniform_real_distribution<float> dist(-25.f, 25.f);
 
 PerspectiveCamera thirdPerson(glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
 PerspectiveCamera firstPerson(glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
@@ -221,6 +225,15 @@ const float CAM_HEIGHT = 2.5f;
 const float CAM_SIDE = 0.0f; 
 
 glm::vec3 topDownPosition = glm::vec3(0.f, 40.f, 0.f);
+
+std::vector<glm::vec3> treePosList = { 
+    glm::vec3(5.f, -2.0f, 0.f),  
+    glm::vec3(5.f, -2.0f, 5.f),
+    glm::vec3(5.f, -2.0f, 10.f),
+    glm::vec3(5.f, -2.0f, 15.f),
+    glm::vec3(5.f, -2.0f, 20.f),
+    glm::vec3(5.f, -2.0f, 25.f),
+};
 
 #ifndef SHADER_H
 #define SHADER_H
@@ -1335,7 +1348,7 @@ int main(void)
     //Model newModel = Model("BOLTER_low", "BOLTER_Albedo", ".jpg");
     Model newModel = Model("sm_altaytank_1", "T_Altay_1_BaseMap", ".png", "T_Altay_1_Normal", ".png");
     Model floorModel = Model("plane", "patchy-meadow1_albedo", ".png", "patchy-meadow1_normal-ogl", ".png");
-    Model treeStem = Model("MapleTreeStem", "maple_bark", ".png", "", "");
+    Model treeStem = Model("MapleTreeStem", "maple_bark", ".png", "maple_bark_normal", ".png");
     Model treeLeaves = Model("MapleTreeLeaves", "maple_leaf", ".png", "", "");
        
     //Create new model plane then initialize texture, overlay map, and normals
@@ -1365,6 +1378,14 @@ int main(void)
         -100.0f, //Near
         10000.f //Far
     );
+
+    float offsetX[10][10], offsetZ[10][10];
+    for (int i = 0; i < 10; i++) {
+        for (int j = 0; j < 10; j++) {
+            offsetX[i][j] = dist(rng);
+            offsetZ[i][j] = dist(rng);
+        }
+    }
     
     //Enable anti-aliasing and blend
     glEnable(GL_MULTISAMPLE);
@@ -1397,7 +1418,7 @@ int main(void)
         switch (cameraType)
         {
         case THIRDPERSON:
-            thirdPerson.Projection = glm::perspective(glm::radians(60.f), windowWidth / windowHeight, 0.1f, 100.f);
+            thirdPerson.Projection = glm::perspective(glm::radians(60.f), windowWidth / windowHeight, 0.1f, 75.f);
             totalYaw = -modelYaw + orbitYawOffset;
 
             thirdPerson.Position = modelPosition + glm::vec3(
@@ -1495,43 +1516,33 @@ int main(void)
             defaultShader.LoadNormal(floorModel.GetNormal());
             floorModel.DrawModel();
 
-            //Tree Trunk
-            glm::mat4 trunk = glm::mat4(1.0f);
-            trunk = glm::translate(trunk, glm::vec3(5.f, -2.f, 5.f));
-            trunk = glm::scale(trunk, glm::vec3(0.5f));
-            defaultShader.setFloat("tiling", 1.f);
-            defaultShader.setMat4("transform", 1, trunk);
-            defaultShader.setBool("useAlphaClip", false);
-            defaultShader.LoadTexture(treeStem.GetDiffuse());
-            defaultShader.LoadNormal(treeStem.GetNormal());
-            treeStem.DrawModel();
+            glm::mat4 trunk, leaves;
+            for (int i = 0; i < 5; i++) {
+                for (int j = 0; j < 5; j++) {
+                    glm::vec3 pos = glm::vec3(5.f * i + offsetX[i][j], -2.f, 5.f * j + offsetZ[i][j]);
 
-            trunk = glm::mat4(1.0f);
-            trunk = glm::translate(trunk, glm::vec3(10.f, -2.f, 10.f));
-            trunk = glm::scale(trunk, glm::vec3(0.5f));
-            defaultShader.setFloat("tiling", 1.f);
-            defaultShader.setMat4("transform", 1, trunk);
-            defaultShader.setBool("useAlphaClip", false);
-            treeStem.DrawModel();
+                    trunk = glm::mat4(1.0f);
+                    trunk = glm::translate(trunk, pos);
+                    trunk = glm::scale(trunk, glm::vec3(0.5f));
+                    defaultShader.setFloat("tiling", 1.f);
+                    defaultShader.setMat4("transform", 1, trunk);
+                    defaultShader.setBool("useAlphaClip", false);
+                    defaultShader.LoadTexture(treeStem.GetDiffuse());
+                    defaultShader.LoadNormal(treeStem.GetNormal());
+                    treeStem.DrawModel();
 
-            //Tree Leaves
-            glm::mat4 leaves = glm::mat4(1.0f);
-            leaves = glm::translate(leaves, glm::vec3(5.f, -2.f, 5.f));
-            leaves = glm::scale(leaves, glm::vec3(0.5f));
-            defaultShader.setFloat("tiling", 1.f);
-            defaultShader.setMat4("transform", 1, leaves);
-            defaultShader.setBool("useAlphaClip", true);
-            defaultShader.LoadTexture(treeLeaves.GetDiffuse());
-            defaultShader.LoadNormal(treeLeaves.GetNormal());
-            treeLeaves.DrawModel();
+                    leaves = glm::mat4(1.0f);
+                    leaves = glm::translate(leaves, pos);
+                    leaves = glm::scale(leaves, glm::vec3(0.5f));
+                    defaultShader.setFloat("tiling", 1.f);
+                    defaultShader.setMat4("transform", 1, leaves);
+                    defaultShader.setBool("useAlphaClip", true);
+                    defaultShader.LoadTexture(treeLeaves.GetDiffuse());
+                    defaultShader.LoadNormal(treeLeaves.GetNormal());
+                    treeLeaves.DrawModel();
 
-            leaves = glm::mat4(1.0f);
-            leaves = glm::translate(leaves, glm::vec3(10.f, -2.f, 10.f));
-            leaves = glm::scale(leaves, glm::vec3(0.5f));
-            defaultShader.setFloat("tiling", 1.f);
-            defaultShader.setMat4("transform", 1, leaves);
-            defaultShader.setBool("useAlphaClip", true);
-            treeLeaves.DrawModel();
+                }
+            }
         }
 
         else {
@@ -1567,43 +1578,33 @@ int main(void)
             nvShader.LoadNormal(floorModel.GetNormal());
             floorModel.DrawModel();
 
-            //Tree Trunk
-            glm::mat4 trunk = glm::mat4(1.0f);
-            trunk = glm::translate(trunk, glm::vec3(5.f, -2.f, 5.f));
-            trunk = glm::scale(trunk, glm::vec3(0.5f));
-            nvShader.setFloat("tiling", 1.f);
-            nvShader.setMat4("transform", 1, trunk);
-            nvShader.setBool("useAlphaClip", false);
-            nvShader.LoadTexture(treeStem.GetDiffuse());
-            nvShader.LoadNormal(treeStem.GetNormal());
-            treeStem.DrawModel();
+            glm::mat4 trunk, leaves;
+            for (int i = 0; i < 5; i++) {
+                for (int j = 0; j < 5; j++) {
+                    glm::vec3 pos = glm::vec3(5.f * i + offsetX[i][j], -2.f, 5.f * j + offsetZ[i][j]);
 
-            trunk = glm::mat4(1.0f);
-            trunk = glm::translate(trunk, glm::vec3(10.f, -2.f, 10.f));
-            trunk = glm::scale(trunk, glm::vec3(0.5f));
-            nvShader.setFloat("tiling", 1.f);
-            nvShader.setMat4("transform", 1, trunk);
-            nvShader.setBool("useAlphaClip", false);
-            treeStem.DrawModel();
+                    trunk = glm::mat4(1.0f);
+                    trunk = glm::translate(trunk, pos);
+                    trunk = glm::scale(trunk, glm::vec3(0.5f));
+                    nvShader.setFloat("tiling", 1.f);
+                    nvShader.setMat4("transform", 1, trunk);
+                    nvShader.setBool("useAlphaClip", false);
+                    nvShader.LoadTexture(treeStem.GetDiffuse());
+                    nvShader.LoadNormal(treeStem.GetNormal());
+                    treeStem.DrawModel();
 
-            //Tree Leaves
-            glm::mat4 leaves = glm::mat4(1.0f);
-            leaves = glm::translate(leaves, glm::vec3(5.f, -2.f, 5.f));
-            leaves = glm::scale(leaves, glm::vec3(0.5f));
-            nvShader.setFloat("tiling", 1.f);
-            nvShader.setMat4("transform", 1, leaves);
-            nvShader.setBool("useAlphaClip", true);
-            nvShader.LoadTexture(treeLeaves.GetDiffuse());
-            nvShader.LoadNormal(treeLeaves.GetNormal());
-            treeLeaves.DrawModel();
+                    leaves = glm::mat4(1.0f);
+                    leaves = glm::translate(leaves, pos);
+                    leaves = glm::scale(leaves, glm::vec3(0.5f));
+                    nvShader.setFloat("tiling", 1.f);
+                    nvShader.setMat4("transform", 1, leaves);
+                    nvShader.setBool("useAlphaClip", true);
+                    nvShader.LoadTexture(treeLeaves.GetDiffuse());
+                    nvShader.LoadNormal(treeLeaves.GetNormal());
+                    treeLeaves.DrawModel();
 
-            leaves = glm::mat4(1.0f);
-            leaves = glm::translate(leaves, glm::vec3(10.f, -2.f, 10.f));
-            leaves = glm::scale(leaves, glm::vec3(0.5f));
-            nvShader.setFloat("tiling", 1.f);
-            nvShader.setMat4("transform", 1, leaves);
-            nvShader.setBool("useAlphaClip", true);
-            treeLeaves.DrawModel();
+                }
+            }
         }
 
         /* Swap front and back buffers */
