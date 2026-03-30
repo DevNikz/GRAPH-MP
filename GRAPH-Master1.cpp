@@ -1207,8 +1207,8 @@ int main(void)
     //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 
     Shader defaultShader("Shaders/classShader.vert", "Shaders/classShader.frag");
-    Shader lightShader("Shaders/lightCube.vert", "Shaders/lightCube.frag");
     Shader skyboxShader("Shaders/skybox.vert", "Shaders/skybox.frag");
+    Shader nvShader("Shaders/classShader.vert", "Shaders/nvShader.frag");
 
     //Load Vertices
     GLfloat vertices[]{
@@ -1460,78 +1460,151 @@ int main(void)
         glDepthFunc(GL_LESS);
         //EOF Skybox
 
-        //Default Objects
-        defaultShader.use();
-        if (cameraType == THIRDPERSON) defaultShader.passPerspectiveCamera(thirdPerson, lookTarget);
-        else if (cameraType == FIRSTPERSON) defaultShader.passPerspectiveCamera(firstPerson, lookTarget);
-        else defaultShader.passOrthoCamera(topDown);
+        //Default Shader
+        if (cameraType == THIRDPERSON || cameraType == TOPDOWN) {
+            defaultShader.use();
+            if (cameraType == THIRDPERSON) defaultShader.passPerspectiveCamera(thirdPerson, lookTarget);
+            else defaultShader.passOrthoCamera(topDown);
 
-        //Pass lights to shader
-        pointLight.Apply(defaultShader, "pointLight");
-        dirLight.Apply(defaultShader, "dirLight");
-        
-        //Tank
-        glm::mat4 objectMatrix = glm::mat4(1.0f);
-        objectMatrix = glm::translate(objectMatrix, modelPosition);
-        objectMatrix = glm::scale(objectMatrix, glm::vec3(1.0f));
-        objectMatrix = glm::rotate(objectMatrix, glm::radians(180.f), glm::vec3(0.f, 1.f, 0.f));
-        objectMatrix = glm::rotate(objectMatrix, glm::radians(modelYaw), glm::vec3(0.f, 1.f, 0.f));
-        defaultShader.setFloat("tiling", 1.f);
-        defaultShader.setMat4("transform", 1, objectMatrix);
-        defaultShader.setBool("useAlphaClip", false);
-        defaultShader.LoadTexture(newModel.GetDiffuse());
-        defaultShader.LoadNormal(newModel.GetNormal());
-        newModel.DrawModel();
+            //Pass lights to shader
+            pointLight.Apply(defaultShader, "pointLight");
+            dirLight.Apply(defaultShader, "dirLight");
 
-        //Floor
-        glm::mat4 floor = glm::mat4(1.0f);
-        floor = glm::translate(floor, glm::vec3(0.f, 0.f, 0.f));
-        floor = glm::scale(floor, glm::vec3(1000.0f));
-        //floor = glm::rotate(floor, glm::radians(90.f), glm::vec3(1.f, 0.f, 0.f));
-        defaultShader.setFloat("tiling", 50.f);
-        defaultShader.setMat4("transform", 1, floor);
-        defaultShader.setBool("useAlphaClip", false);
-        defaultShader.LoadTexture(floorModel.GetDiffuse());
-        defaultShader.LoadNormal(floorModel.GetNormal());
-        floorModel.DrawModel();
+            //Tank
+            glm::mat4 objectMatrix = glm::mat4(1.0f);
+            objectMatrix = glm::translate(objectMatrix, modelPosition);
+            objectMatrix = glm::scale(objectMatrix, glm::vec3(1.0f));
+            objectMatrix = glm::rotate(objectMatrix, glm::radians(180.f), glm::vec3(0.f, 1.f, 0.f));
+            objectMatrix = glm::rotate(objectMatrix, glm::radians(modelYaw), glm::vec3(0.f, 1.f, 0.f));
+            defaultShader.setFloat("tiling", 1.f);
+            defaultShader.setMat4("transform", 1, objectMatrix);
+            defaultShader.setBool("useAlphaClip", false);
+            defaultShader.LoadTexture(newModel.GetDiffuse());
+            defaultShader.LoadNormal(newModel.GetNormal());
+            newModel.DrawModel();
 
-        //Tree Trunk
-        glm::mat4 trunk = glm::mat4(1.0f);
-        trunk = glm::translate(trunk, glm::vec3(5.f, -2.f, 5.f));
-        trunk = glm::scale(trunk, glm::vec3(0.5f));
-        defaultShader.setFloat("tiling", 1.f);
-        defaultShader.setMat4("transform", 1, trunk);
-        defaultShader.setBool("useAlphaClip", false);
-        defaultShader.LoadTexture(treeStem.GetDiffuse());
-        defaultShader.LoadNormal(treeStem.GetNormal());
-        treeStem.DrawModel();
+            //Floor
+            glm::mat4 floor = glm::mat4(1.0f);
+            floor = glm::translate(floor, glm::vec3(0.f, 0.f, 0.f));
+            floor = glm::scale(floor, glm::vec3(1000.0f));
+            //floor = glm::rotate(floor, glm::radians(90.f), glm::vec3(1.f, 0.f, 0.f));
+            defaultShader.setFloat("tiling", 50.f);
+            defaultShader.setMat4("transform", 1, floor);
+            defaultShader.setBool("useAlphaClip", false);
+            defaultShader.LoadTexture(floorModel.GetDiffuse());
+            defaultShader.LoadNormal(floorModel.GetNormal());
+            floorModel.DrawModel();
 
-        trunk = glm::mat4(1.0f);
-        trunk = glm::translate(trunk, glm::vec3(10.f, -2.f, 10.f));
-        trunk = glm::scale(trunk, glm::vec3(0.5f));
-        defaultShader.setFloat("tiling", 1.f);
-        defaultShader.setMat4("transform", 1, trunk);
-        defaultShader.setBool("useAlphaClip", false);
-        treeStem.DrawModel();
+            //Tree Trunk
+            glm::mat4 trunk = glm::mat4(1.0f);
+            trunk = glm::translate(trunk, glm::vec3(5.f, -2.f, 5.f));
+            trunk = glm::scale(trunk, glm::vec3(0.5f));
+            defaultShader.setFloat("tiling", 1.f);
+            defaultShader.setMat4("transform", 1, trunk);
+            defaultShader.setBool("useAlphaClip", false);
+            defaultShader.LoadTexture(treeStem.GetDiffuse());
+            defaultShader.LoadNormal(treeStem.GetNormal());
+            treeStem.DrawModel();
 
-        //Tree Leaves
-        glm::mat4 leaves = glm::mat4(1.0f);
-        leaves = glm::translate(leaves, glm::vec3(5.f, -2.f, 5.f));
-        leaves = glm::scale(leaves, glm::vec3(0.5f));
-        defaultShader.setFloat("tiling", 1.f);
-        defaultShader.setMat4("transform", 1, leaves);
-        defaultShader.setBool("useAlphaClip", true);
-        defaultShader.LoadTexture(treeLeaves.GetDiffuse());
-        defaultShader.LoadNormal(treeLeaves.GetNormal());
-        treeLeaves.DrawModel();
+            trunk = glm::mat4(1.0f);
+            trunk = glm::translate(trunk, glm::vec3(10.f, -2.f, 10.f));
+            trunk = glm::scale(trunk, glm::vec3(0.5f));
+            defaultShader.setFloat("tiling", 1.f);
+            defaultShader.setMat4("transform", 1, trunk);
+            defaultShader.setBool("useAlphaClip", false);
+            treeStem.DrawModel();
 
-        leaves = glm::mat4(1.0f);
-        leaves = glm::translate(leaves, glm::vec3(10.f, -2.f, 10.f));
-        leaves = glm::scale(leaves, glm::vec3(0.5f));
-        defaultShader.setFloat("tiling", 1.f);
-        defaultShader.setMat4("transform", 1, leaves);
-        defaultShader.setBool("useAlphaClip", true);
-        treeLeaves.DrawModel();
+            //Tree Leaves
+            glm::mat4 leaves = glm::mat4(1.0f);
+            leaves = glm::translate(leaves, glm::vec3(5.f, -2.f, 5.f));
+            leaves = glm::scale(leaves, glm::vec3(0.5f));
+            defaultShader.setFloat("tiling", 1.f);
+            defaultShader.setMat4("transform", 1, leaves);
+            defaultShader.setBool("useAlphaClip", true);
+            defaultShader.LoadTexture(treeLeaves.GetDiffuse());
+            defaultShader.LoadNormal(treeLeaves.GetNormal());
+            treeLeaves.DrawModel();
+
+            leaves = glm::mat4(1.0f);
+            leaves = glm::translate(leaves, glm::vec3(10.f, -2.f, 10.f));
+            leaves = glm::scale(leaves, glm::vec3(0.5f));
+            defaultShader.setFloat("tiling", 1.f);
+            defaultShader.setMat4("transform", 1, leaves);
+            defaultShader.setBool("useAlphaClip", true);
+            treeLeaves.DrawModel();
+        }
+
+        else {
+            nvShader.use();
+            nvShader.passPerspectiveCamera(firstPerson, lookTarget);
+
+            //Pass lights to shader
+            pointLight.Apply(nvShader, "pointLight");
+            dirLight.Apply(nvShader, "dirLight");
+
+            //Tank
+            glm::mat4 objectMatrix = glm::mat4(1.0f);
+            objectMatrix = glm::translate(objectMatrix, modelPosition);
+            objectMatrix = glm::scale(objectMatrix, glm::vec3(1.0f));
+            objectMatrix = glm::rotate(objectMatrix, glm::radians(180.f), glm::vec3(0.f, 1.f, 0.f));
+            objectMatrix = glm::rotate(objectMatrix, glm::radians(modelYaw), glm::vec3(0.f, 1.f, 0.f));
+            nvShader.setFloat("tiling", 1.f);
+            nvShader.setMat4("transform", 1, objectMatrix);
+            nvShader.setBool("useAlphaClip", false);
+            nvShader.LoadTexture(newModel.GetDiffuse());
+            nvShader.LoadNormal(newModel.GetNormal());
+            newModel.DrawModel();
+
+            //Floor
+            glm::mat4 floor = glm::mat4(1.0f);
+            floor = glm::translate(floor, glm::vec3(0.f, 0.f, 0.f));
+            floor = glm::scale(floor, glm::vec3(1000.0f));
+            //floor = glm::rotate(floor, glm::radians(90.f), glm::vec3(1.f, 0.f, 0.f));
+            nvShader.setFloat("tiling", 50.f);
+            nvShader.setMat4("transform", 1, floor);
+            nvShader.setBool("useAlphaClip", false);
+            nvShader.LoadTexture(floorModel.GetDiffuse());
+            nvShader.LoadNormal(floorModel.GetNormal());
+            floorModel.DrawModel();
+
+            //Tree Trunk
+            glm::mat4 trunk = glm::mat4(1.0f);
+            trunk = glm::translate(trunk, glm::vec3(5.f, -2.f, 5.f));
+            trunk = glm::scale(trunk, glm::vec3(0.5f));
+            nvShader.setFloat("tiling", 1.f);
+            nvShader.setMat4("transform", 1, trunk);
+            nvShader.setBool("useAlphaClip", false);
+            nvShader.LoadTexture(treeStem.GetDiffuse());
+            nvShader.LoadNormal(treeStem.GetNormal());
+            treeStem.DrawModel();
+
+            trunk = glm::mat4(1.0f);
+            trunk = glm::translate(trunk, glm::vec3(10.f, -2.f, 10.f));
+            trunk = glm::scale(trunk, glm::vec3(0.5f));
+            nvShader.setFloat("tiling", 1.f);
+            nvShader.setMat4("transform", 1, trunk);
+            nvShader.setBool("useAlphaClip", false);
+            treeStem.DrawModel();
+
+            //Tree Leaves
+            glm::mat4 leaves = glm::mat4(1.0f);
+            leaves = glm::translate(leaves, glm::vec3(5.f, -2.f, 5.f));
+            leaves = glm::scale(leaves, glm::vec3(0.5f));
+            nvShader.setFloat("tiling", 1.f);
+            nvShader.setMat4("transform", 1, leaves);
+            nvShader.setBool("useAlphaClip", true);
+            nvShader.LoadTexture(treeLeaves.GetDiffuse());
+            nvShader.LoadNormal(treeLeaves.GetNormal());
+            treeLeaves.DrawModel();
+
+            leaves = glm::mat4(1.0f);
+            leaves = glm::translate(leaves, glm::vec3(10.f, -2.f, 10.f));
+            leaves = glm::scale(leaves, glm::vec3(0.5f));
+            nvShader.setFloat("tiling", 1.f);
+            nvShader.setMat4("transform", 1, leaves);
+            nvShader.setBool("useAlphaClip", true);
+            treeLeaves.DrawModel();
+        }
 
         /* Swap front and back buffers */
         glfwSwapBuffers(window);
