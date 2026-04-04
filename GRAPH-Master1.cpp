@@ -48,10 +48,9 @@ public:
     // camera options
     float MovementSpeed;
     float MouseSensitivity;
-    float Zoom;
 
     // constructor with vectors
-    Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float yaw = YAW, float pitch = PITCH) : Front(glm::vec3(0.0f, 0.0f, -1.0f)), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM)
+    Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float yaw = YAW, float pitch = PITCH) : Front(glm::vec3(0.0f, 0.0f, -1.0f)), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY)
     {
         Position = position;
         WorldUp = up;
@@ -61,7 +60,7 @@ public:
         updateCameraVectors();
     }
     // constructor with scalar values
-    Camera(float posX, float posY, float posZ, float upX, float upY, float upZ, float yaw, float pitch) : Front(glm::vec3(0.0f, 0.0f, -1.0f)), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM)
+    Camera(float posX, float posY, float posZ, float upX, float upY, float upZ, float yaw, float pitch) : Front(glm::vec3(0.0f, 0.0f, -1.0f)), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY)
     {
         Position = glm::vec3(posX, posY, posZ);
         WorldUp = glm::vec3(upX, upY, upZ);
@@ -106,20 +105,6 @@ public:
                 Pitch = -89.0f;
         }
         updateCameraVectors();
-    }
-    void ProcessMouseScroll(float yoffset)
-    {
-        Zoom -= (float)yoffset;
-        if (Zoom < 1.0f)
-            Zoom = 1.0f;
-        if (Zoom > 45.0f)
-            Zoom = 45.0f;
-
-        //if (cameraType == PERSPECTIVE)
-        //{
-        //    //if (OrbitRadius < 1.0f) OrbitRadius = 1.0f;
-        //    //updateCameraVectors();
-        //}   
     }
 
 public:
@@ -224,15 +209,25 @@ const float CAM_DIST = 8.f;
 const float CAM_HEIGHT = 2.5f;   
 const float CAM_SIDE = 0.0f; 
 
-glm::vec3 topDownPosition = glm::vec3(0.f, 40.f, 0.f);
+glm::vec3 topDownPosition = glm::vec3(0.f, 60.f, 0.f);
 
-std::vector<glm::vec3> treePosList = { 
-    glm::vec3(5.f, -2.0f, 0.f),  
-    glm::vec3(5.f, -2.0f, 5.f),
-    glm::vec3(5.f, -2.0f, 10.f),
-    glm::vec3(5.f, -2.0f, 15.f),
-    glm::vec3(5.f, -2.0f, 20.f),
-    glm::vec3(5.f, -2.0f, 25.f),
+struct ContainerPlacement {
+    glm::vec3 pos;
+    float rotY;
+};
+
+ContainerPlacement containers[] = {
+    //near the house (staggered row)
+    { glm::vec3(60.f, 0.f, 10.f),  90.f  },  
+    { glm::vec3(60.f, 0.f, 12.5f),  90.f  }, 
+    { glm::vec3(60.f, 0.f, 15.f),  90.f  },  
+
+    // Perpendicular stack nearby
+    { glm::vec3(50.f, 0.f, 5.f),   0.f   },
+    { glm::vec3(47.5f, 0.f, 5.f),   0.f   }, 
+
+    // Lone container off to the side
+    { glm::vec3(90.f, 0.f, -10.f), 45.f  },
 };
 
 #ifndef SHADER_H
@@ -528,7 +523,7 @@ PointLight pointLight(
 DirectionalLight dirLight(
     glm::vec3(-0.2f, -1.0f, -0.6f), // direction: high angle, slightly angled like a moon
     glm::vec3(0.6f, 0.7f, 1.0f),    // color: cool blue-white moonlight
-    0.15f,                            // strength: dim, moon is much weaker than sun
+    0.2f,                            // strength: dim, moon is much weaker than sun
     //1.f,
     0.08f,                            // ambientStr: dark night ambient
     glm::vec3(0.05f, 0.05f, 0.15f), // ambientColor: deep blue night tint
@@ -538,7 +533,7 @@ DirectionalLight dirLight(
 
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 // ---------------------------------------------------------------------------------------------------------
-void processInput(GLFWwindow* window)
+void processInput(GLFWwindow* window)       
 {
     static bool onePress = false;
     static bool twoPress = false;
@@ -729,33 +724,6 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
             thirdPerson.ProcessMouseMovement(orbitYawOffset, orbitPitch);
             break;
     }
-
-    //switch (cameraType)
-    //{
-    //case PERSPECTIVE:
-    //    //perspective.ProcessMouseMovement(xoffset, yoffset);
-    //    break;
-    //case ORTHO:
-    //    //ortho.ProcessMouseMovement(xoffset, yoffset);
-    //    break;
-    //}
-    
-}
-
-// glfw: whenever the mouse scroll wheel scrolls, this callback is called
-// ----------------------------------------------------------------------
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
-{
-    /*switch (cameraType)
-    {
-    case PERSPECTIVE:
-        perspective.ProcessMouseScroll(static_cast<float>(yoffset));
-        break;
-
-    case ORTHO:
-        ortho.ProcessMouseScroll(static_cast<float>(yoffset));
-        break;
-    }*/
 }
 
 //MODEL CLASS
@@ -780,10 +748,12 @@ public:
     string texName;
     string normName;
     string overlayName;
+    string baseMtl;
     //glm::vec3 position;
 
-    Model(string _name, string _tex, string _file, string _norm = "", string _normFile = "", string _over = "", string _overFile = "");
+    Model(string _name, string _tex, string _file, string _norm = "", string _normFile = "", string _over = "", string _overFile = "", string _mtlPath = "3D/");
     void InitModel();
+    void InitCustomModel();
     void InitCube();
     void DrawCube();
     void DrawModel();
@@ -808,11 +778,12 @@ GLuint Model::GetOverlay() {
     return this->overlayTexture;
 }
 
-Model::Model(string _name, string _tex, string _file, string _norm, string _normFile, string _over, string _overFile) {
+Model::Model(string _name, string _tex, string _file, string _norm, string _normFile, string _over, string _overFile, string _mtlPath) {
     modelName = "3D/" + _name + ".obj";
     texName = "3D/" + _tex + _file;
     normName = "3D/" + _norm + _normFile;
     overlayName = "3D/" + _over + _overFile;
+    baseMtl = _mtlPath;
 }
 
 void Model::InitOverlayMap() {
@@ -1207,50 +1178,190 @@ void Model::InitModel() {
     glBindVertexArray(0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
-#endif
 
-//MAIN
-int main(void)
-{
-    GLFWwindow* window;
-    /* Initialize the library */
-    if (!glfwInit()) return -1;
+void Model::InitCustomModel() {
+    //Load Object. If success, it loads
+    bool success = tinyobj::LoadObj(
+        &attributes,
+        &shapes,
+        &materials,
+        &error,
+        modelName.c_str(),
+        baseMtl.c_str()
+    );
 
-    /* Create a windowed mode window and its OpenGL context */
-    glfwWindowHint(GLFW_SAMPLES, 8);
-    
-    window = glfwCreateWindow(windowWidth, windowHeight, "Niks :>", NULL, NULL);
-    if (!window)
-    {
-        glfwTerminate();
-        return -1;
+    if (texName == "3D/" && !materials.empty() && !materials[0].diffuse_texname.empty())
+        texName = baseMtl + materials[0].diffuse_texname;
+
+    if (normName == "3D/" && !materials.empty() && !materials[0].bump_texname.empty())
+        normName = baseMtl + materials[0].bump_texname;
+
+    for (int i = 0; i < shapes.size(); i++) {
+        for (int j = 0; j < shapes[i].mesh.indices.size(); j += 3) {
+            tinyobj::index_t vData1 = shapes[i].mesh.indices[j];
+            tinyobj::index_t vData2 = shapes[i].mesh.indices[j + 1];
+            tinyobj::index_t vData3 = shapes[i].mesh.indices[j + 2];
+
+            //Pos
+            glm::vec3 v1 = glm::vec3(
+                attributes.vertices[vData1.vertex_index * 3],
+                attributes.vertices[vData1.vertex_index * 3 + 1],
+                attributes.vertices[vData1.vertex_index * 3 + 2]
+            );
+
+            glm::vec3 v2 = glm::vec3(
+                attributes.vertices[vData2.vertex_index * 3],
+                attributes.vertices[vData2.vertex_index * 3 + 1],
+                attributes.vertices[vData2.vertex_index * 3 + 2]
+            );
+
+            glm::vec3 v3 = glm::vec3(
+                attributes.vertices[vData3.vertex_index * 3],
+                attributes.vertices[vData3.vertex_index * 3 + 1],
+                attributes.vertices[vData3.vertex_index * 3 + 2]
+            );
+
+            //UV
+            glm::vec2 uv1 = glm::vec2(
+                attributes.texcoords[(vData1.texcoord_index * 2)],
+                attributes.texcoords[(vData1.texcoord_index * 2) + 1]
+            );
+
+            glm::vec2 uv2 = glm::vec2(
+                attributes.texcoords[(vData2.texcoord_index * 2)],
+                attributes.texcoords[(vData2.texcoord_index * 2) + 1]
+            );
+
+            glm::vec2 uv3 = glm::vec2(
+                attributes.texcoords[(vData3.texcoord_index * 2)],
+                attributes.texcoords[(vData3.texcoord_index * 2) + 1]
+            );
+
+            glm::vec3 deltaPos1 = v2 - v1;
+            glm::vec3 deltaPos2 = v3 - v1;
+
+            glm::vec2 deltaUV1 = uv2 - uv1;
+            glm::vec2 deltaUV2 = uv3 - uv1;
+
+            float r = 1.0f / ((deltaUV1.x * deltaUV2.y) - (deltaUV1.y * deltaUV2.x));
+            glm::vec3 tangent = (deltaPos1 * deltaUV2.y - deltaPos2 * deltaUV1.y) * r;
+            glm::vec3 bitangent = (deltaPos2 * deltaUV1.x - deltaPos1 * deltaUV2.x) * r;
+
+            tangents.push_back(tangent);
+            tangents.push_back(tangent);
+            tangents.push_back(tangent);
+
+            bitangents.push_back(bitangent);
+            bitangents.push_back(bitangent);
+            bitangents.push_back(bitangent);
+        }
     }
 
-    //Can be used for split screen games
-    //glViewport(0,0,1280,720);
+    for (int i = 0; i < shapes.size(); i++) {
+        for (int j = 0; j < shapes[i].mesh.indices.size(); j++) {
+            tinyobj::index_t vData = shapes[i].mesh.indices[j];
+            fullVertexData.push_back(attributes.vertices[(vData.vertex_index * 3)]); //X
+            fullVertexData.push_back(attributes.vertices[(vData.vertex_index * 3) + 1]); //Y
+            fullVertexData.push_back(attributes.vertices[(vData.vertex_index * 3) + 2]); //Z
+            fullVertexData.push_back(attributes.normals[(vData.normal_index * 3)]);
+            fullVertexData.push_back(attributes.normals[(vData.normal_index * 3) + 1]);
+            fullVertexData.push_back(attributes.normals[(vData.normal_index * 3) + 2]);
+            fullVertexData.push_back(attributes.texcoords[(vData.texcoord_index * 2)]); //U
+            fullVertexData.push_back(attributes.texcoords[(vData.texcoord_index * 2) + 1]); //V
 
-    /* Make the window's context current */
-    glfwMakeContextCurrent(window);
-    gladLoadGL(glfwGetProcAddress); // if using CMAKE
-    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-    glfwSetCursorPosCallback(window, mouse_callback);
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            fullVertexData.push_back(tangents[i].x);
+            fullVertexData.push_back(tangents[i].y);
+            fullVertexData.push_back(tangents[i].z);
+            fullVertexData.push_back(bitangents[i].x);
+            fullVertexData.push_back(bitangents[i].y);
+            fullVertexData.push_back(bitangents[i].z);
+        }
+    }
 
-    Shader defaultShader("Shaders/classShader.vert", "Shaders/classShader.frag");
-    Shader skyboxShader("Shaders/skybox.vert", "Shaders/skybox.frag");
-    Shader nvShader("Shaders/classShader.vert", "Shaders/nvShader.frag");
-    Shader nvSkyShader("Shaders/skybox.vert", "Shaders/nvSkybox.frag");
 
-    //Load Vertices
-    GLfloat vertices[]{
-        0.f, 0.5f, 0.f,     //0
-        -1.f, -0.f, 0.f,    //1
-        0.5f, -0.5f, 0.f    //2
-    };
-    GLuint indices[]{ 0,1,2 };
+    GLintptr normalPtr = 3 * sizeof(float);
+    GLintptr uvPtr = 6 * sizeof(float);
+    GLintptr tangentPtr = 8 * sizeof(float);
+    GLintptr bitangentPtr = 11 * sizeof(float);
 
-    float skyboxVertices[]{
+    //(SHADERS) Generate vertices and buffers
+    glGenVertexArrays(1, &vao);
+    glGenBuffers(1, &vbo);
+
+    //(POSITIONS) VBO
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+    //Using fullvertexdata
+    glBufferData(
+        GL_ARRAY_BUFFER,
+        sizeof(GLfloat) * fullVertexData.size(),
+        fullVertexData.data(),
+        GL_DYNAMIC_DRAW
+    );
+    glVertexAttribPointer(
+        0, // Index / buffer index
+        3, // x y z
+        GL_FLOAT, // array of floats
+        GL_FALSE, // if its normalized
+        14 * sizeof(GLfloat), // size of data per vertex
+        (void*)0
+    );
+    glEnableVertexAttribArray(0);
+
+    //Normal
+    glVertexAttribPointer(
+        1,
+        3, // x y z
+        GL_FLOAT, // array of floats
+        GL_FALSE, // if its normalized
+        14 * sizeof(GLfloat), // size of data per vertex
+        (void*)normalPtr
+    );
+    glEnableVertexAttribArray(1);
+
+    //UV
+    glVertexAttribPointer(
+        2,
+        2,
+        GL_FLOAT,
+        GL_FALSE,
+        14 * sizeof(GLfloat),
+        (void*)uvPtr
+    );
+    glEnableVertexAttribArray(2);
+
+    //Tangent
+    glVertexAttribPointer(
+        3,
+        3,
+        GL_FLOAT,
+        GL_FALSE,
+        14 * sizeof(GLfloat),
+        (void*)tangentPtr
+    );
+    glEnableVertexAttribArray(3);
+
+    //Bitangent
+    glVertexAttribPointer(
+        4,
+        3,
+        GL_FLOAT,
+        GL_FALSE,
+        14 * sizeof(GLfloat),
+        (void*)bitangentPtr
+    );
+    glEnableVertexAttribArray(4);
+
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+}
+#endif
+
+#ifndef SKYBOX_H
+float skyboxVertices[]{
     -1.f, -1.f, 1.f, //0
     1.f, -1.f, 1.f,  //1
     1.f, -1.f, -1.f, //2
@@ -1259,31 +1370,101 @@ int main(void)
     1.f, 1.f, 1.f,   //5
     1.f, 1.f, -1.f,  //6
     -1.f, 1.f, -1.f  //7
+};
+
+//Skybox Indices
+unsigned int skyboxIndices[]{
+    1,2,6, //R
+    6,5,1,
+
+    0,4,7, //L
+    7,3,0,
+
+    4,5,6, //T
+    6,7,4,
+
+    0,3,2, //B
+    2,1,0,
+
+    0,1,5, //Front
+    5,4,0,
+
+    3,7,6, //Back
+    6,2,3
+};
+
+class Skybox {
+private:
+    GLuint skyVAO, skyboxTex;
+
+public:
+    string right, left, top, bottom, front, back;
+
+    Skybox(string _right, string _left, string _top, string _bottom, string _front, string _back);
+    void InitSky();
+    void DrawSky();
+    void InitTextures();
+};
+
+Skybox::Skybox(string _right, string _left, string _top, string _bottom, string _front, string _back) {
+    right = "Skybox/" + _right + ".png";
+    left = "Skybox/" + _left + ".png";
+    top = "Skybox/" + _top + ".png";
+    bottom = "Skybox/" + _bottom + ".png";
+    front = "Skybox/" + _front + ".png";
+    back = "Skybox/" + _back + ".png";
+}
+
+void Skybox::InitTextures() {
+    std::string faceSky[]{
+        right,
+        left,
+        top,
+        bottom,
+        front,
+        back
     };
 
-    //Skybox Indices
-    unsigned int skyboxIndices[]{
-        1,2,6, //R
-        6,5,1,
+    //unsigned int skyboxTex;
+    glGenTextures(1, &skyboxTex);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTex);
 
-        0,4,7, //L
-        7,3,0,
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
-        4,5,6, //T
-        6,7,4,
+    //if 3d this, else only s and t
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-        0,3,2, //B
-        2,1,0,
+    for (unsigned int i = 0; i < 6; i++) {
+        int w, h, skyCh;
+        stbi_set_flip_vertically_on_load(false);
 
-        0,1,5, //Front
-        5,4,0,
+        unsigned char* skybytes = stbi_load(faceSky[i].c_str(), &w, &h, &skyCh, 0);
 
-        3,7,6, //Back
-        6,2,3
-    };
+        if (skybytes) {
+            GLenum format = (skyCh == 4) ? GL_RGBA : GL_RGB;
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, format, w, h, 0, format, GL_UNSIGNED_BYTE, skybytes);
+            stbi_image_free(skybytes);
+        }
+        else {
+            std::cout << "Failed to load skybox face: " << faceSky[i] << std::endl;
+            stbi_image_free(skybytes);
+        }
 
-    //SKY BOX (DO NOT TOUCH)
-    unsigned int skyVAO, skyVBO, skyEBO;
+    }
+}
+
+void Skybox::DrawSky() {
+    glBindVertexArray(skyVAO);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTex);
+    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+}
+
+void Skybox::InitSky() {
+    unsigned int skyVBO, skyEBO;
     glGenVertexArrays(1, &skyVAO);
     glGenBuffers(1, &skyVBO);
     glGenBuffers(1, &skyEBO);
@@ -1321,48 +1502,51 @@ int main(void)
         (void*)0
     );
     glEnableVertexAttribArray(0);
+}
+#endif
 
-    //SKY BOX Tex
+
+//MAIN
+int main(void)
+{
+    GLFWwindow* window;
+    /* Initialize the library */
+    if (!glfwInit()) return -1;
+
+    /* Create a windowed mode window and its OpenGL context */
+    glfwWindowHint(GLFW_SAMPLES, 8);
     
-    std::string faceSky[]{
-        "Skybox/cubemap1_right.png",
-        "Skybox/cubemap1_left.png",
-        "Skybox/cubemap1_top.png",
-        "Skybox/cubemap1_bottom.png",
-        "Skybox/cubemap1_front.png",
-        "Skybox/cubemap1_back.png"
-    };
-    
-
-    unsigned int skyboxTex;
-    glGenTextures(1, &skyboxTex);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTex);
-
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-    //if 3d this, else only s and t
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    for (unsigned int i = 0; i < 6; i++) {
-        int w, h, skyCh;
-        stbi_set_flip_vertically_on_load(false);
-
-        unsigned char* skybytes = stbi_load(faceSky[i].c_str(), &w, &h, &skyCh, 0);
-
-        if (skybytes) {
-            GLenum format = (skyCh == 4) ? GL_RGBA : GL_RGB;
-            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, format, w, h, 0, format, GL_UNSIGNED_BYTE, skybytes);
-            stbi_image_free(skybytes);
-        }
-        else {
-            std::cout << "Failed to load skybox face: " << faceSky[i] << std::endl;
-            stbi_image_free(skybytes);
-        }
-        
+    window = glfwCreateWindow(windowWidth, windowHeight, "Niks :>", NULL, NULL);
+    if (!window)
+    {
+        glfwTerminate();
+        return -1;
     }
+
+    /* Make the window's context current */
+    glfwMakeContextCurrent(window);
+    gladLoadGL(glfwGetProcAddress); // if using CMAKE
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    glfwSetCursorPosCallback(window, mouse_callback);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+
+    Shader defaultShader("Shaders/classShader.vert", "Shaders/classShader.frag");
+    Shader skyboxShader("Shaders/skybox.vert", "Shaders/skybox.frag");
+    Shader nvShader("Shaders/classShader.vert", "Shaders/nvShader.frag");
+    Shader nvSkyShader("Shaders/skybox.vert", "Shaders/nvSkybox.frag");
+
+    //Load Vertices
+    GLfloat vertices[]{
+        0.f, 0.5f, 0.f,     //0
+        -1.f, -0.f, 0.f,    //1
+        0.5f, -0.5f, 0.f    //2
+    };
+    GLuint indices[]{ 0,1,2 };
+
+    Skybox skybox("cubemap1_right", "cubemap1_left", "cubemap1_top", "cubemap1_bottom", "cubemap1_front", "cubemap1_back");
+    skybox.InitSky();
+    skybox.InitTextures();
 
     //Model newModel = Model("BOLTER_low", "BOLTER_Albedo", ".jpg");
     Model newModel = Model("sm_altaytank_1", "T_Altay_1_BaseMap", ".png", "T_Altay_1_Normal", ".png");
@@ -1370,7 +1554,10 @@ int main(void)
     Model treeStem = Model("MapleTreeStem", "maple_bark", ".png", "maple_bark_normal", ".png");
     Model treeLeaves = Model("MapleTreeLeaves", "maple_leaf", ".png", "", "");
     Model woodhouse = Model("WoodHouse", "woodhouse", ".png", "woodhouse_normal", ".png");
-    Model fenceobj = Model("13078_Wooden_Post_and_Rail_Fence_v1_l3", "Wooden_Post_and_Rail_Fence_diffuse", ".jpg", "", "");
+    Model shipmentObj = Model("Sci-fi Large container", "Sci-fi Container _Base_Color", ".png", "Sci-fi Container _Normal_OpenGL", ".png", "", "", "3D/");
+    Model oldhouseObj = Model("Big_Old_House", "Big_Old_House_C", ".jpg", "Big_Old_House_N", ".jpg", "", "", "3D/");
+    Model generatorObj = Model("Generator_01", "tex_generator_01_d", ".jpg", "tex_generator_01_n", ".jpg", "", "", "3D/");
+    Model substationObj = Model("electrical_substation", "T_Electrical_Substation_BaseColor", ".png", "T_Electrical_Substation_Normal", ".png", "", "", "3D/");
        
     //Create new model plane then initialize texture, overlay map, and normals
     newModel.InitModel();
@@ -1393,17 +1580,29 @@ int main(void)
     woodhouse.InitTextures();
     woodhouse.InitNormals();
 
-    fenceobj.InitModel();
-    fenceobj.InitTextures();
-    fenceobj.InitNormals();
+    shipmentObj.InitCustomModel();
+    shipmentObj.InitTextures();
+    shipmentObj.InitNormals();
+
+    oldhouseObj.InitCustomModel();
+    oldhouseObj.InitTextures();
+    oldhouseObj.InitNormals();
+
+    generatorObj.InitCustomModel();
+    generatorObj.InitTextures();
+    generatorObj.InitNormals();
+
+    substationObj.InitModel();
+    substationObj.InitTextures();
+    substationObj.InitNormals();
 
 
     //Camera instances
     topDown.Projection = glm::ortho(
-        -60.f, //L
-        60.f, //R
-        -60.f, //Bottom
-        60.f, //Top
+        -100.f, //L
+        100.f, //R
+        -100.f, //Bottom
+        100.f, //Top
         -100.0f, //Near
         10000.f //Far
     );
@@ -1414,6 +1613,14 @@ int main(void)
         for (int j = 0; j < 10; j++) {
             offsetX[i][j] = dist(rng);
             offsetZ[i][j] = dist(rng);
+        }
+    }
+
+    float offsetX2[10][10], offsetZ2[10][10];
+    for (int i = 0; i < 10; i++) {
+        for (int j = 0; j < 10; j++) {
+            offsetX2[i][j] = dist(rng);
+            offsetZ2[i][j] = dist(rng);
         }
     }
     
@@ -1501,10 +1708,7 @@ int main(void)
             if (cameraType == THIRDPERSON) skyboxShader.PassSkybox(thirdPerson, lookTarget);
             else skyboxShader.PassOrthoSkybox(topDown);
 
-            glBindVertexArray(skyVAO);
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTex);
-            glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+            skybox.DrawSky();
 
             glDepthMask(GL_TRUE);
             glDepthFunc(GL_LESS);
@@ -1554,19 +1758,69 @@ int main(void)
             defaultShader.LoadNormal(woodhouse.GetNormal());
             woodhouse.DrawModel();
 
-            //fence
-            glm::mat4 m_fence = glm::mat4(1.0f);
-            m_fence = glm::translate(m_fence, glm::vec3(0.f, 5.f, 0.f));
-            m_fence = glm::scale(m_fence, glm::vec3(5.0f));
-            m_fence = glm::rotate(m_fence, glm::radians(90.f), glm::vec3(0.f, 1.f, 0.f));
-            defaultShader.setFloat("tiling", 1.f);
-            defaultShader.setMat4("transform", 1, m_fence);
-            defaultShader.setBool("useAlphaClip", false);
-            defaultShader.LoadTexture(fenceobj.GetDiffuse());
-            defaultShader.LoadNormal(fenceobj.GetNormal());
-            fenceobj.DrawModel();
+            //Shipment
+            for (auto& c : containers) {
+                glm::mat4 m_shipmentL = glm::mat4(1.0f);
+                m_shipmentL = glm::translate(m_shipmentL, c.pos);
+                m_shipmentL = glm::scale(m_shipmentL, glm::vec3(0.75f));
+                m_shipmentL = glm::rotate(m_shipmentL, glm::radians(c.rotY), glm::vec3(0.f, 1.f, 0.f));
+                defaultShader.setFloat("tiling", 1.f);
+                defaultShader.setMat4("transform", 1, m_shipmentL);
+                defaultShader.setBool("useAlphaClip", false);
+                defaultShader.LoadTexture(shipmentObj.GetDiffuse());
+                defaultShader.LoadNormal(shipmentObj.GetNormal());
+                shipmentObj.DrawModel();
+            }
 
-            //Tree
+            //OldHouse
+            glm::mat4 m_oldhouse = glm::mat4(1.0f);
+            m_oldhouse = glm::translate(m_oldhouse, glm::vec3(90.f, 0.f, 60.f));
+            m_oldhouse = glm::scale(m_oldhouse, glm::vec3(2.0f));                
+            m_oldhouse = glm::rotate(m_oldhouse, glm::radians(200.f), glm::vec3(0.f, 1.f, 0.f)); 
+            defaultShader.setFloat("tiling", 1.f);
+            defaultShader.setMat4("transform", 1, m_oldhouse);
+            defaultShader.setBool("useAlphaClip", false);
+            defaultShader.LoadTexture(oldhouseObj.GetDiffuse());
+            defaultShader.LoadNormal(oldhouseObj.GetNormal());
+            oldhouseObj.DrawModel();
+
+            // Generator behind Woodhouse
+            glm::mat4 m_gen1 = glm::mat4(1.0f);
+            m_gen1 = glm::translate(m_gen1, glm::vec3(75.f, 0.f, 28.5f));
+            m_gen1 = glm::scale(m_gen1, glm::vec3(0.75f));
+            m_gen1 = glm::rotate(m_gen1, glm::radians(0.f), glm::vec3(0.f, 1.f, 0.f)); // match house facing
+            defaultShader.setFloat("tiling", 1.f);
+            defaultShader.setMat4("transform", 1, m_gen1);
+            defaultShader.setBool("useAlphaClip", false);
+            defaultShader.LoadTexture(generatorObj.GetDiffuse());
+            defaultShader.LoadNormal(generatorObj.GetNormal());
+            generatorObj.DrawModel();
+
+            // Generator behind OldHouse
+            glm::mat4 m_gen2 = glm::mat4(1.0f);
+            m_gen2 = glm::translate(m_gen2, glm::vec3(93.f, 0.f, 65.f));
+            m_gen2 = glm::scale(m_gen2, glm::vec3(1.f));
+            m_gen2 = glm::rotate(m_gen2, glm::radians(200.f), glm::vec3(0.f, 1.f, 0.f)); // match house facing
+            defaultShader.setFloat("tiling", 1.f);
+            defaultShader.setMat4("transform", 1, m_gen2);
+            defaultShader.setBool("useAlphaClip", false);
+            defaultShader.LoadTexture(generatorObj.GetDiffuse());
+            defaultShader.LoadNormal(generatorObj.GetNormal());
+            generatorObj.DrawModel();
+
+            //Substation
+            glm::mat4 m_sub = glm::mat4(1.0f);
+            m_sub = glm::translate(m_sub, glm::vec3(100.f, 0.f, -35.f)); // open area, away from others
+            m_sub = glm::scale(m_sub, glm::vec3(0.025f));                 // 172*0.12 ≈ 20 world units wide
+            m_sub = glm::rotate(m_sub, glm::radians(0.f), glm::vec3(0.f, 1.f, 0.f));
+            defaultShader.setFloat("tiling", 1.f);
+            defaultShader.setMat4("transform", 1, m_sub);
+            defaultShader.setBool("useAlphaClip", false);
+            defaultShader.LoadTexture(substationObj.GetDiffuse());
+            defaultShader.LoadNormal(substationObj.GetNormal());
+            substationObj.DrawModel();
+
+            //Tree Patch 1
             glm::mat4 trunk, leaves;
             for (int i = 0; i < 5; i++) {
                 for (int j = 0; j < 5; j++) {
@@ -1595,8 +1849,34 @@ int main(void)
                 }
             }
 
-            
+            //Tree Patch 2
+            for (int i = 0; i < 8; i++) {
+                for (int j = 0; j < 8; j++) {
+                    glm::vec3 pos = glm::vec3(50.f * i + offsetX2[i][j], -2.f, 5.f * j + offsetZ2[i][j]);
 
+                    trunk = glm::mat4(1.0f);
+                    trunk = glm::translate(trunk, pos);
+                    trunk = glm::scale(trunk, glm::vec3(0.25f));
+                    defaultShader.setFloat("tiling", 1.f);
+                    defaultShader.setMat4("transform", 1, trunk);
+                    defaultShader.setBool("useAlphaClip", false);
+                    defaultShader.LoadTexture(treeStem.GetDiffuse());
+                    defaultShader.LoadNormal(treeStem.GetNormal());
+                    treeStem.DrawModel();
+
+                    leaves = glm::mat4(1.0f);
+                    leaves = glm::translate(leaves, pos);
+                    leaves = glm::scale(leaves, glm::vec3(0.25f));
+                    defaultShader.setFloat("tiling", 1.f);
+                    defaultShader.setMat4("transform", 1, leaves);
+                    defaultShader.setBool("useAlphaClip", true);
+                    defaultShader.LoadTexture(treeLeaves.GetDiffuse());
+                    defaultShader.LoadNormal(treeLeaves.GetNormal());
+                    treeLeaves.DrawModel();
+
+                }
+            }
+            //EOF
         }
 
         else {
@@ -1607,10 +1887,7 @@ int main(void)
             nvSkyShader.setInt("skybox", 0);
             nvSkyShader.PassSkybox(firstPerson, lookTarget);
 
-            glBindVertexArray(skyVAO);
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTex);
-            glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+            skybox.DrawSky();
 
             glDepthMask(GL_TRUE);
             glDepthFunc(GL_LESS);
@@ -1640,13 +1917,86 @@ int main(void)
             glm::mat4 floor = glm::mat4(1.0f);
             floor = glm::translate(floor, glm::vec3(0.f, 0.f, 0.f));
             floor = glm::scale(floor, glm::vec3(1000.0f));
-            //floor = glm::rotate(floor, glm::radians(90.f), glm::vec3(1.f, 0.f, 0.f));
             nvShader.setFloat("tiling", 50.f);
             nvShader.setMat4("transform", 1, floor);
             nvShader.setBool("useAlphaClip", false);
             nvShader.LoadTexture(floorModel.GetDiffuse());
             nvShader.LoadNormal(floorModel.GetNormal());
             floorModel.DrawModel();
+
+            //Woodhouse
+            glm::mat4 woodhouse_m = glm::mat4(1.0f);
+            woodhouse_m = glm::translate(woodhouse_m, glm::vec3(75.f, 0.f, 25.f));
+            woodhouse_m = glm::scale(woodhouse_m, glm::vec3(2.0f));
+            woodhouse_m = glm::rotate(woodhouse_m, glm::radians(90.f), glm::vec3(0.f, 1.f, 0.f));
+            nvShader.setFloat("tiling", 1.f);
+            nvShader.setMat4("transform", 1, woodhouse_m);
+            nvShader.setBool("useAlphaClip", false);
+            nvShader.LoadTexture(woodhouse.GetDiffuse());
+            nvShader.LoadNormal(woodhouse.GetNormal());
+            woodhouse.DrawModel();
+
+            //Shipment
+            for (auto& c : containers) {
+                glm::mat4 m_shipmentL = glm::mat4(1.0f);
+                m_shipmentL = glm::translate(m_shipmentL, c.pos);
+                m_shipmentL = glm::scale(m_shipmentL, glm::vec3(0.75f));
+                m_shipmentL = glm::rotate(m_shipmentL, glm::radians(c.rotY), glm::vec3(0.f, 1.f, 0.f));
+                nvShader.setFloat("tiling", 1.f);
+                nvShader.setMat4("transform", 1, m_shipmentL);
+                nvShader.setBool("useAlphaClip", false);
+                nvShader.LoadTexture(shipmentObj.GetDiffuse());
+                nvShader.LoadNormal(shipmentObj.GetNormal());
+                shipmentObj.DrawModel();
+            }
+
+            //OldHouse
+            glm::mat4 m_oldhouse = glm::mat4(1.0f);
+            m_oldhouse = glm::translate(m_oldhouse, glm::vec3(90.f, 0.f, 60.f));
+            m_oldhouse = glm::scale(m_oldhouse, glm::vec3(2.0f));
+            m_oldhouse = glm::rotate(m_oldhouse, glm::radians(200.f), glm::vec3(0.f, 1.f, 0.f));
+            nvShader.setFloat("tiling", 1.f);
+            nvShader.setMat4("transform", 1, m_oldhouse);
+            nvShader.setBool("useAlphaClip", false);
+            nvShader.LoadTexture(oldhouseObj.GetDiffuse());
+            nvShader.LoadNormal(oldhouseObj.GetNormal());
+            oldhouseObj.DrawModel();
+
+            // Generator behind Woodhouse
+            glm::mat4 m_gen1 = glm::mat4(1.0f);
+            m_gen1 = glm::translate(m_gen1, glm::vec3(75.f, 0.f, 28.5f));
+            m_gen1 = glm::scale(m_gen1, glm::vec3(0.75f));
+            m_gen1 = glm::rotate(m_gen1, glm::radians(0.f), glm::vec3(0.f, 1.f, 0.f)); // match house facing
+            nvShader.setFloat("tiling", 1.f);
+            nvShader.setMat4("transform", 1, m_gen1);
+            nvShader.setBool("useAlphaClip", false);
+            nvShader.LoadTexture(generatorObj.GetDiffuse());
+            nvShader.LoadNormal(generatorObj.GetNormal());
+            generatorObj.DrawModel();
+
+            // Generator behind OldHouse
+            glm::mat4 m_gen2 = glm::mat4(1.0f);
+            m_gen2 = glm::translate(m_gen2, glm::vec3(93.f, 0.f, 65.f));
+            m_gen2 = glm::scale(m_gen2, glm::vec3(1.f));
+            m_gen2 = glm::rotate(m_gen2, glm::radians(200.f), glm::vec3(0.f, 1.f, 0.f)); // match house facing
+            nvShader.setFloat("tiling", 1.f);
+            nvShader.setMat4("transform", 1, m_gen2);
+            nvShader.setBool("useAlphaClip", false);
+            nvShader.LoadTexture(generatorObj.GetDiffuse());
+            nvShader.LoadNormal(generatorObj.GetNormal());
+            generatorObj.DrawModel();
+
+            //Substation
+            glm::mat4 m_sub = glm::mat4(1.0f);
+            m_sub = glm::translate(m_sub, glm::vec3(100.f, 0.f, -35.f)); // open area, away from others
+            m_sub = glm::scale(m_sub, glm::vec3(0.025f));                 // 172*0.12 ≈ 20 world units wide
+            m_sub = glm::rotate(m_sub, glm::radians(0.f), glm::vec3(0.f, 1.f, 0.f));
+            nvShader.setFloat("tiling", 1.f);
+            nvShader.setMat4("transform", 1, m_sub);
+            nvShader.setBool("useAlphaClip", false);
+            nvShader.LoadTexture(substationObj.GetDiffuse());
+            nvShader.LoadNormal(substationObj.GetNormal());
+            substationObj.DrawModel();
 
             glm::mat4 trunk, leaves;
             for (int i = 0; i < 5; i++) {
@@ -1676,17 +2026,33 @@ int main(void)
                 }
             }
 
-            //Woodhouse
-            glm::mat4 woodhouse_m = glm::mat4(1.0f);
-            woodhouse_m = glm::translate(woodhouse_m, glm::vec3(75.f, 0.f, 25.f));
-            woodhouse_m = glm::scale(woodhouse_m, glm::vec3(2.0f));
-            woodhouse_m = glm::rotate(woodhouse_m, glm::radians(90.f), glm::vec3(0.f, 1.f, 0.f));
-            defaultShader.setFloat("tiling", 1.f);
-            defaultShader.setMat4("transform", 1, woodhouse_m);
-            defaultShader.setBool("useAlphaClip", false);
-            defaultShader.LoadTexture(woodhouse.GetDiffuse());
-            defaultShader.LoadNormal(woodhouse.GetNormal());
-            woodhouse.DrawModel();
+            //Tree Patch 2
+            for (int i = 0; i < 8; i++) {
+                for (int j = 0; j < 8; j++) {
+                    glm::vec3 pos = glm::vec3(50.f * i + offsetX2[i][j], -2.f, 5.f * j + offsetZ2[i][j]);
+
+                    trunk = glm::mat4(1.0f);
+                    trunk = glm::translate(trunk, pos);
+                    trunk = glm::scale(trunk, glm::vec3(0.25f));
+                    nvShader.setFloat("tiling", 1.f);
+                    nvShader.setMat4("transform", 1, trunk);
+                    nvShader.setBool("useAlphaClip", false);
+                    nvShader.LoadTexture(treeStem.GetDiffuse());
+                    nvShader.LoadNormal(treeStem.GetNormal());
+                    treeStem.DrawModel();
+
+                    leaves = glm::mat4(1.0f);
+                    leaves = glm::translate(leaves, pos);
+                    leaves = glm::scale(leaves, glm::vec3(0.25f));
+                    nvShader.setFloat("tiling", 1.f);
+                    nvShader.setMat4("transform", 1, leaves);
+                    nvShader.setBool("useAlphaClip", true);
+                    nvShader.LoadTexture(treeLeaves.GetDiffuse());
+                    nvShader.LoadNormal(treeLeaves.GetNormal());
+                    treeLeaves.DrawModel();
+
+                }
+            }
         }
 
         /* Swap front and back buffers */
@@ -1696,12 +2062,20 @@ int main(void)
         glfwPollEvents();
     }
 
-    //lightModel.DeleteBuffers();
+    //Tank
     newModel.DeleteBuffers();
+
+    //Floor
     floorModel.DeleteBuffers();
+
+    //Objects needed
     treeStem.DeleteBuffers();
     treeLeaves.DeleteBuffers();
-    fenceobj.DeleteBuffers();
+    woodhouse.DeleteBuffers();
+    shipmentObj.DeleteBuffers();
+    oldhouseObj.DeleteBuffers();
+    generatorObj.DeleteBuffers();
+    substationObj.DeleteBuffers();
 
     //Terminate gl
     glfwTerminate();
