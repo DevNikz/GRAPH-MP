@@ -1516,7 +1516,7 @@ int main(void)
     /* Create a windowed mode window and its OpenGL context */
     glfwWindowHint(GLFW_SAMPLES, 8);
     
-    window = glfwCreateWindow(windowWidth, windowHeight, "Niks :>", NULL, NULL);
+    window = glfwCreateWindow(windowWidth, windowHeight, "GRAPH-MP_Ragudo_Nikko_Taylan_EJ", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
